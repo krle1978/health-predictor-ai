@@ -25,9 +25,13 @@ venv/
 .venv/
 
 # TensorFlow models - allow model files we explicitly add
-backend/models/
+# Dozvoli samo ove fajlove iz models foldera
+backend/models/*
 !backend/models/*.keras
 !backend/models/*.h5
+!backend/models/*.pkl
+!backend/models/*.joblib
+!backend/models/*.csv
 
 # ============================
 # ✅ ENV SECRETS
