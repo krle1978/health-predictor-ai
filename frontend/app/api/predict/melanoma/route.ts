@@ -3,11 +3,19 @@ import { NextResponse } from "next/server"
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
+function getApiBase() {
+  return process.env.API_BASE ?? process.env.NEXT_PUBLIC_API_BASE ?? null
+}
+
 export async function POST(req: Request) {
-  const base = process.env.NEXT_PUBLIC_API_BASE
+  const base = getApiBase()
   if (!base) {
     return NextResponse.json(
-      { error: "NEXT_PUBLIC_API_BASE is not set (check frontend/.env.local)" },
+      {
+        error: "API_BASE is not set",
+        hint:
+          "Set API_BASE in Vercel Environment Variables (or add API_BASE=http://127.0.0.1:8000 to frontend/.env.local for local dev).",
+      },
       { status: 500 }
     )
   }

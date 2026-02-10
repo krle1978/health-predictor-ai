@@ -6,7 +6,6 @@ type BackendStatus = {
   ready: boolean;
   checking: boolean;
   error: string | null;
-  baseUrl: string | null;
   lastCheckedAt: number | null;
 };
 
@@ -19,7 +18,6 @@ export function useBackendStatus(): BackendStatus {
       ready: false,
       checking: false,
       error: "BackendStatusProvider missing",
-      baseUrl: null,
       lastCheckedAt: null,
     };
   }
@@ -31,8 +29,6 @@ function sleep(ms: number) {
 }
 
 export default function BackendGate({ children }: { children: React.ReactNode }) {
-  const baseUrl = process.env.NEXT_PUBLIC_API_BASE || null;
-
   const [ready, setReady] = useState(false);
   const [checking, setChecking] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -43,22 +39,13 @@ export default function BackendGate({ children }: { children: React.ReactNode })
   useEffect(() => {
     let cancelled = false;
 
-    if (!baseUrl) {
-      setReady(false);
-      setChecking(false);
-      setError(
-        "NEXT_PUBLIC_API_BASE nije podešen. Kreiraj `frontend/.env.local` (kopiraj iz `frontend/.env.example`) i upiši npr. NEXT_PUBLIC_API_BASE=http://127.0.0.1:8000 (ili tvoj Render URL), pa restartuj frontend."
-      );
-      return;
-    }
-
     const run = async () => {
       setReady(false);
       setChecking(true);
       setError(null);
       setAttempt(0);
 
-      const maxAttempts = 120; // ~2 min at 1s cadence after initial backoff
+      const maxAttempts = 120; // ~2 min (with backoff capped at 1s)
       for (let i = 0; i < maxAttempts; i += 1) {
         if (cancelled) return;
         setAttempt(i + 1);
@@ -66,7 +53,7 @@ export default function BackendGate({ children }: { children: React.ReactNode })
         try {
           const controller = new AbortController();
           const timeout = setTimeout(() => controller.abort(), 2500);
-          const res = await fetch(`${baseUrl.replace(/\/$/, "")}/health`, {
+          const res = await fetch(`/api/health`, {
             method: "GET",
             cache: "no-store",
             signal: controller.signal,
@@ -90,21 +77,18 @@ export default function BackendGate({ children }: { children: React.ReactNode })
           setError(`Ne mogu da kontaktiram backend (${msg}).`);
         }
 
-        // Backoff: 250ms -> 500ms -> 1s (cap)
         const delay = Math.min(1000, 250 * Math.pow(2, Math.min(i, 2)));
         await sleep(delay);
       }
 
-      if (!cancelled) {
-        setChecking(false);
-      }
+      if (!cancelled) setChecking(false);
     };
 
     run();
     return () => {
       cancelled = true;
     };
-  }, [baseUrl, refreshToken]);
+  }, [refreshToken]);
 
   useEffect(() => {
     const prevOverflow = document.body.style.overflow;
@@ -115,19 +99,15 @@ export default function BackendGate({ children }: { children: React.ReactNode })
   }, [ready]);
 
   const status = useMemo<BackendStatus>(
-    () => ({ ready, checking, error, baseUrl, lastCheckedAt }),
-    [ready, checking, error, baseUrl, lastCheckedAt]
+    () => ({ ready, checking, error, lastCheckedAt }),
+    [ready, checking, error, lastCheckedAt]
   );
 
   return (
     <BackendStatusContext.Provider value={status}>
       <div
         aria-hidden={!ready}
-        style={
-          !ready
-            ? { filter: "blur(2px)", pointerEvents: "none", userSelect: "none" }
-            : undefined
-        }
+        style={!ready ? { filter: "blur(2px)", pointerEvents: "none", userSelect: "none" } : undefined}
       >
         {children}
       </div>
@@ -138,15 +118,12 @@ export default function BackendGate({ children }: { children: React.ReactNode })
             <div className="flex items-start gap-3">
               <div className="mt-1 h-5 w-5 rounded-full border-2 border-brandCyan border-t-transparent animate-spin" />
               <div className="flex-1">
-                <h2 className="text-xl font-semibold text-brandBlue">
-                  Učitavam backend…
-                </h2>
+                <h2 className="text-xl font-semibold text-brandBlue">Ucitavam backend...</h2>
                 <p className="text-sm text-gray-600 mt-1">
-                  Aplikacija je privremeno zaključana dok API ne bude spreman.
+                  Aplikacija je privremeno zakljucana dok API ne bude spreman.
                 </p>
                 <p className="text-xs text-gray-500 mt-2 break-words">
-                  {baseUrl ? `API: ${baseUrl}` : "API nije podešen"}
-                  {attempt ? ` • pokušaj ${attempt}` : ""}
+                  API: /api/health{attempt ? ` • pokusaj ${attempt}` : ""}
                 </p>
                 {error && (
                   <div className="mt-3 rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">
@@ -161,36 +138,25 @@ export default function BackendGate({ children }: { children: React.ReactNode })
               <ul className="mt-2 list-disc pl-5 text-sm text-gray-700 space-y-1">
                 <li>Izaberi modul: Heart / Diabetes / Stroke / Melanoma.</li>
                 <li>Popuni sva polja brojevima (bez praznih vrednosti).</li>
-                <li>Za Melanoma: ubaci jasnu sliku kože i klikni “Predict”.</li>
+                <li>Za Melanoma: ubaci jasnu sliku koze i klikni "Predict".</li>
                 <li>Rezultat prikazuje predikciju i procenu sigurnosti (confidence).</li>
-                <li>Ako dobiješ grešku: proveri API URL i osveži stranicu.</li>
+                <li>Ako dobijes gresku: proveri backend URL u environment var.</li>
               </ul>
             </div>
 
             <div className="mt-4 flex items-center justify-end gap-3">
               <button
                 type="button"
-                onClick={() => {
-                  setRefreshToken((n) => n + 1);
-                }}
+                onClick={() => setRefreshToken((n) => n + 1)}
                 className="px-4 py-2 rounded-lg border border-brandCyan/40 text-brandBlue hover:bg-brandCyan/10 transition"
               >
-                Pokušaj ponovo
+                Pokusaj ponovo
               </button>
               <a
-                href={baseUrl ? `${baseUrl.replace(/\/$/, "")}/health` : undefined}
+                href="/api/health"
                 target="_blank"
                 rel="noreferrer"
-                aria-disabled={!baseUrl}
-                tabIndex={baseUrl ? 0 : -1}
-                onClick={(e) => {
-                  if (!baseUrl) e.preventDefault();
-                }}
-                className={
-                  baseUrl
-                    ? "px-4 py-2 rounded-lg bg-brandCyan text-white font-semibold hover:bg-brandCyan/90 transition"
-                    : "px-4 py-2 rounded-lg bg-gray-200 text-gray-500 font-semibold cursor-not-allowed"
-                }
+                className="px-4 py-2 rounded-lg bg-brandCyan text-white font-semibold hover:bg-brandCyan/90 transition"
               >
                 Otvori /health
               </a>

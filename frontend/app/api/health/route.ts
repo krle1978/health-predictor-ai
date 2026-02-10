@@ -7,7 +7,7 @@ function getApiBase() {
   return process.env.API_BASE ?? process.env.NEXT_PUBLIC_API_BASE ?? null
 }
 
-export async function POST(req: Request) {
+export async function GET() {
   const base = getApiBase()
   if (!base) {
     return NextResponse.json(
@@ -20,26 +20,20 @@ export async function POST(req: Request) {
     )
   }
 
-  const body = await req.json()
-  const backendUrl = `${base.replace(/\/$/, "")}/predict/stroke`
-
+  const backendUrl = `${base.replace(/\/$/, "")}/health`
   try {
-    const res = await fetch(backendUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-      cache: "no-store",
-    })
+    const res = await fetch(backendUrl, { method: "GET", cache: "no-store" })
+    const text = await res.text().catch(() => "")
 
-    const text = await res.text()
-    try {
-      return NextResponse.json(JSON.parse(text), { status: res.status })
-    } catch {
+    if (!res.ok) {
       return NextResponse.json(
-        { error: "Invalid response from backend", backendUrl, status: res.status, body: text.slice(0, 2000) },
-        { status: 502 }
+        { error: "Backend not ready", status: res.status, body: text ? text.slice(0, 2000) : "" },
+        { status: res.status }
       )
     }
+
+    // Backend might return plain text; pass through as JSON-ish status.
+    return NextResponse.json({ ok: true, status: res.status, body: text }, { status: 200 })
   } catch (err: any) {
     return NextResponse.json(
       { error: "Backend unreachable", backendUrl, details: err?.message || String(err) },

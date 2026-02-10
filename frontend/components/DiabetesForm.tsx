@@ -55,7 +55,7 @@ export default function PredictionOfDiabetes() {
         Age: formData.Age
       }
 
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE}/predict/diabetes`, {
+      const res = await fetch(`/api/predict/diabetes`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

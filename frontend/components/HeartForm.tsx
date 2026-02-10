@@ -50,7 +50,7 @@ export default function PredictionOfHeartDisease() {
 
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE}/predict/heart`,
+        `/api/predict/heart`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
