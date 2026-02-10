@@ -46,7 +46,9 @@ export default function BackendGate({ children }: { children: React.ReactNode })
     if (!baseUrl) {
       setReady(false);
       setChecking(false);
-      setError("NEXT_PUBLIC_API_BASE nije podešen (proveri frontend/.env.local).");
+      setError(
+        "NEXT_PUBLIC_API_BASE nije podešen. Kreiraj `frontend/.env.local` (kopiraj iz `frontend/.env.example`) i upiši npr. NEXT_PUBLIC_API_BASE=http://127.0.0.1:8000 (ili tvoj Render URL), pa restartuj frontend."
+      );
       return;
     }
 
@@ -176,10 +178,19 @@ export default function BackendGate({ children }: { children: React.ReactNode })
                 Pokušaj ponovo
               </button>
               <a
-                href={baseUrl ? `${baseUrl.replace(/\/$/, "")}/health` : "#"}
+                href={baseUrl ? `${baseUrl.replace(/\/$/, "")}/health` : undefined}
                 target="_blank"
                 rel="noreferrer"
-                className="px-4 py-2 rounded-lg bg-brandCyan text-white font-semibold hover:bg-brandCyan/90 transition"
+                aria-disabled={!baseUrl}
+                tabIndex={baseUrl ? 0 : -1}
+                onClick={(e) => {
+                  if (!baseUrl) e.preventDefault();
+                }}
+                className={
+                  baseUrl
+                    ? "px-4 py-2 rounded-lg bg-brandCyan text-white font-semibold hover:bg-brandCyan/90 transition"
+                    : "px-4 py-2 rounded-lg bg-gray-200 text-gray-500 font-semibold cursor-not-allowed"
+                }
               >
                 Otvori /health
               </a>
