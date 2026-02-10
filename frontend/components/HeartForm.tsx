@@ -40,8 +40,8 @@ export default function PredictionOfHeartDisease() {
     };
 
     // ✅ Validacija inputa pre slanja
-    for (const key in payload) {
-      if (isNaN(payload[key])) {
+    for (const [key, value] of Object.entries(payload)) {
+      if (!Number.isFinite(value)) {
         alert(`Missing or invalid value for: ${key}`);
         setLoading(false);
         return;

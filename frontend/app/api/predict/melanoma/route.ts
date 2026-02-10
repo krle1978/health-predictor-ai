@@ -12,10 +12,10 @@ export async function POST(req: Request) {
     )
   }
 
-  const backendUrl = `${base}/predict/melanoma`
+  const backendUrl = `${base.replace(/\/$/, "")}/predict/melanoma`
   const contentType = req.headers.get("content-type") || ""
 
-  let res: Response
+  let res: Response | null = null
   const body = await req.arrayBuffer()
 
   let lastErr: any = null
@@ -36,7 +36,7 @@ export async function POST(req: Request) {
     }
   }
 
-  if (lastErr) {
+  if (lastErr || !res) {
     return NextResponse.json(
       { error: "Backend unreachable", backendUrl, details: lastErr?.message || String(lastErr) },
       { status: 502 }

@@ -1,4 +1,5 @@
 import "./globals.css"
+import BackendGate from "@/components/BackendGate"
 
 export const metadata = { 
   title: "Health Predictor AI", 
@@ -10,7 +11,9 @@ export const dynamic = "force-dynamic";
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <BackendGate>{children}</BackendGate>
+      </body>
     </html>
   )
 }
