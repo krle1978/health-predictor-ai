@@ -1,20 +1,20 @@
-# ============================
-# ✅ NODE / NEXT.JS FRONTEND
-# ============================
+#
+# NODE / NEXT.JS
+#
+node_modules/
+**/node_modules/
 frontend/node_modules/
 frontend/.next/
 frontend/out/
+**/.next/
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Prevent accidental tracking of Next.js build cache
-**/.next/
-
-# ============================
-# ✅ PYTHON BACKEND
-# ============================
+#
+# PYTHON
+#
 __pycache__/
 *.pyc
 *.pyo
@@ -24,8 +24,7 @@ env/
 venv/
 .venv/
 
-# TensorFlow models - allow model files we explicitly add
-# Dozvoli samo ove fajlove iz models foldera
+# TensorFlow models - allow only explicit model artifacts
 backend/models/*
 !backend/models/*.keras
 !backend/models/*.h5
@@ -33,24 +32,27 @@ backend/models/*
 !backend/models/*.joblib
 !backend/models/*.csv
 
-# ============================
-# ✅ ENV SECRETS
-# ============================
+#
+# ENV SECRETS
+#
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
 
-# ============================
-# ✅ OS / EDITOR
-# ============================
+#
+# OS / EDITOR
+#
 .DS_Store
 Thumbs.db
 .vscode/
 .idea/
 
-# ============================
-# ✅ RENDER / VERCEL
-# ============================
+#
+# RENDER / VERCEL
+#
 .vercel/
+
+# Scratch / local workspaces
+temp-clean/

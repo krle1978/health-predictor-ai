@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 
-export default function DiabetesForm() {
+export default function PredictionOfDiabetes() {
   const [formData, setFormData] = useState({
     HighChol: "",
     Smoker: "",
@@ -21,14 +21,16 @@ export default function DiabetesForm() {
   const [result, setResult] = useState<{ prediction: string; confidence: number } | null>(null)
   const [loading, setLoading] = useState(false)
 
-  // 🧮 BMI izračunavanje
+  // 🧮 BMI calculation
   const height = parseFloat(formData.Height)
   const weight = parseFloat(formData.Weight)
   const bmi = height && weight ? +(weight / Math.pow(height / 100, 2)).toFixed(1) : 0
 
-  // Boja BMI oznake
   const bmiColor =
-    bmi < 18.5 ? "text-blue-500" : bmi < 25 ? "text-green-600" : bmi < 30 ? "text-yellow-600" : "text-red-600"
+    bmi < 18.5 ? "text-blue-500" :
+    bmi < 25 ? "text-green-600" :
+    bmi < 30 ? "text-yellow-600" :
+    "text-red-600"
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
@@ -62,10 +64,7 @@ export default function DiabetesForm() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || "Prediction failed")
 
-      setResult({
-        prediction: data.prediction,
-        confidence: data.confidence
-      })
+      setResult({ prediction: data.prediction, confidence: data.confidence })
     } catch (error) {
       console.error(error)
       setResult(null)
@@ -77,52 +76,48 @@ export default function DiabetesForm() {
   return (
     <div className="relative w-full flex flex-col justify-center items-center">
       <div className="w-full bg-white rounded-2xl shadow-lg p-8 border border-brandCyan/40">
-        <h2 className="text-2xl font-semibold text-brandBlue mb-6 flex items-center gap-2">
-          🍬 Diabetes Prediction
+        <h2 className="text-2xl font-semibold text-brandBlue mb-6">
+          Prediction of Diabetes
         </h2>
 
         <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Red 1 */}
           <div className="grid grid-cols-3 gap-4">
-            <select name="HighChol" value={formData.HighChol} onChange={handleChange} className="input" title="High Cholesterol">
+            <select name="HighChol" value={formData.HighChol} onChange={handleChange} className="input">
               <option value="">High Cholesterol?</option>
               <option value="0">No</option>
               <option value="1">Yes</option>
             </select>
 
-            <select name="Smoker" value={formData.Smoker} onChange={handleChange} className="input" title="Smoker">
+            <select name="Smoker" value={formData.Smoker} onChange={handleChange} className="input">
               <option value="">Smoker?</option>
               <option value="0">No</option>
               <option value="1">Yes</option>
             </select>
 
-            <select name="HeartDiseaseorAttack" value={formData.HeartDiseaseorAttack} onChange={handleChange} className="input" title="Heart Disease or Attack">
+            <select name="HeartDiseaseorAttack" value={formData.HeartDiseaseorAttack} onChange={handleChange} className="input">
               <option value="">Heart Disease or Attack?</option>
               <option value="0">No</option>
               <option value="1">Yes</option>
             </select>
           </div>
 
-          {/* Red 2 - Height & Weight */}
           <div className="grid grid-cols-2 gap-4">
             <input name="Height" type="number" placeholder="Height (cm)" value={formData.Height} onChange={handleChange} className="input" />
             <input name="Weight" type="number" placeholder="Weight (kg)" value={formData.Weight} onChange={handleChange} className="input" />
           </div>
 
-          {/* BMI prikaz */}
           {bmi > 0 && (
             <p className={`font-semibold text-lg ${bmiColor}`}>BMI: {bmi}</p>
           )}
 
-          {/* Red 3 */}
           <div className="grid grid-cols-2 gap-4">
-            <select name="PhysActivity" value={formData.PhysActivity} onChange={handleChange} className="input" title="Physical Activity">
+            <select name="PhysActivity" value={formData.PhysActivity} onChange={handleChange} className="input">
               <option value="">Physical Activity?</option>
               <option value="0">No</option>
               <option value="1">Yes</option>
             </select>
 
-            <select name="GenHlth" value={formData.GenHlth} onChange={handleChange} className="input" title="General Health">
+            <select name="GenHlth" value={formData.GenHlth} onChange={handleChange} className="input">
               <option value="">General Health</option>
               <option value="1">Excellent</option>
               <option value="2">Very Good</option>
@@ -132,20 +127,16 @@ export default function DiabetesForm() {
             </select>
           </div>
 
-          {/* Red 4 */}
           <div className="grid grid-cols-2 gap-4">
             <input name="PhysHlth" type="number" placeholder="Physical Health (0–30 days)" value={formData.PhysHlth} onChange={handleChange} className="input" />
-            <select name="DiffWalk" value={formData.DiffWalk} onChange={handleChange} className="input" title="Difficulty Walking">
+            <select name="DiffWalk" value={formData.DiffWalk} onChange={handleChange} className="input">
               <option value="">Difficulty Walking?</option>
               <option value="0">No</option>
               <option value="1">Yes</option>
             </select>
           </div>
 
-          {/* Red 5 */}
-          <div className="grid grid-cols-1 gap-4">
-            <input name="Age" type="number" placeholder="Age" value={formData.Age} onChange={handleChange} className="input" />
-          </div>
+          <input name="Age" type="number" placeholder="Age" value={formData.Age} onChange={handleChange} className="input" />
 
           <button
             type="submit"
@@ -156,7 +147,22 @@ export default function DiabetesForm() {
           </button>
         </form>
 
-        {/* 💠 Rezultat kartica */}
+        <details className="mt-6 cursor-pointer text-sm text-gray-700 bg-gray-50 p-4 rounded-lg">
+          <summary className="font-semibold text-brandBlue">🛈 Instructions (click to expand)</summary>
+          <ul className="mt-3 list-disc pl-6 space-y-1">
+            <li><b>HighChol:</b> 0 = No, 1 = Yes — High cholesterol diagnosis.</li>
+            <li><b>Smoker:</b> 0 = No, 1 = Yes — Smoking status.</li>
+            <li><b>HeartDiseaseorAttack:</b> 0 = No, 1 = Yes — Heart disease history.</li>
+            <li><b>Height / Weight:</b> Height in cm, Weight in kg — Used to compute BMI.</li>
+            <li><b>BMI:</b> Computed automatically; 18.5–24.9 is healthy.</li>
+            <li><b>PhysActivity:</b> 0 = No, 1 = Yes — Regular physical activity.</li>
+            <li><b>GenHlth:</b> 1 = Excellent → 5 = Poor — General health rating.</li>
+            <li><b>PhysHlth:</b> 0–30 days — Days of poor physical health last month.</li>
+            <li><b>DiffWalk:</b> 0 = No, 1 = Yes — Walking difficulties.</li>
+            <li><b>Age:</b> in years (integer).</li>
+          </ul>
+        </details>
+
         <AnimatePresence>
           {result && (
             <motion.div
@@ -175,12 +181,7 @@ export default function DiabetesForm() {
                 className="text-xl"
                 initial={{ scale: 0.9 }}
                 animate={{ scale: 1.05 }}
-                transition={{
-                  duration: 0.6,
-                  repeat: Infinity,
-                  repeatType: "reverse",
-                  ease: "easeInOut"
-                }}
+                transition={{ duration: 0.6, repeat: Infinity, repeatType: "reverse", ease: "easeInOut" }}
               >
                 {result.prediction === "Positive" ? "⚠️ Diabetes Risk Detected" : "✅ No Diabetes Risk"}
               </motion.p>

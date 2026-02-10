@@ -1,0 +1,17 @@
+{
+  "name": "health-predictor-ai",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "install:all": "npm --prefix frontend ci",
+    "postinstall": "npm --prefix frontend ci",
+    "dev": "concurrently -n backend,frontend,open -c blue,green,magenta \"node scripts/backend-dev.mjs\" \"npm --prefix frontend run dev\" \"node scripts/open-dev.mjs --port 3000 --port-max 3010\"",
+    "dev:backend": "node scripts/backend-dev.mjs",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "dev:reinstall": "concurrently -n backend,frontend,open -c blue,green,magenta \"node scripts/backend-dev.mjs --force-install\" \"npm --prefix frontend run dev\" \"node scripts/open-dev.mjs --port 3000 --port-max 3010\"",
+    "dev:ps": "powershell -NoProfile -ExecutionPolicy Bypass -File dev.ps1"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
