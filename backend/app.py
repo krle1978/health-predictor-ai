@@ -127,12 +127,11 @@ def _build_melanoma_model(image_size: tuple[int, int], num_classes: int) -> tf.k
     base = tf.keras.applications.EfficientNetB0(
         include_top=False,
         weights=None,
-        input_tensor=inputs,
+        input_shape=(h, w, 3),
         pooling="avg",
-        name="efficientnetb0",
     )
 
-    x = base.output
+    x = base(inputs)
     x = tf.keras.layers.Dropout(0.4, name="dropout")(x)
     x = tf.keras.layers.Dense(256, activation="relu", name="dense")(x)
     x = tf.keras.layers.Dropout(0.3, name="dropout_1")(x)
@@ -174,7 +173,19 @@ def _try_load_melanoma_model() -> tf.keras.Model:
             f"{melanoma_model_path_keras}, {melanoma_weights_path}, {melanoma_legacy_h5_path}"
         )
 
-    base = model.get_layer("efficientnetb0")
+    try:
+        base = model.get_layer("efficientnetb0")
+    except Exception:
+        base = next(
+            (
+                layer
+                for layer in model.layers
+                if isinstance(layer, tf.keras.Model) and layer.name.lower().startswith("efficientnet")
+            ),
+            None,
+        )
+        if base is None:
+            raise
     with h5py.File(melanoma_legacy_h5_path, "r") as f:
         mw = f["model_weights"]
 
