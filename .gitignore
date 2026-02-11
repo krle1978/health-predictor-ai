@@ -59,3 +59,6 @@ temp-clean/
 
 # Root lockfile (keep frontend/package-lock.json tracked for Vercel)
 /package-lock.json
+
+.vercel
+.env*.local

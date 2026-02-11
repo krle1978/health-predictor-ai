@@ -258,6 +258,9 @@ def health():
             "heart_loaded": heart_model is not None,
             "melanoma_loaded": melanoma_model is not None,
             "melanoma_error": _melanoma_load_error,
+            "melanoma_disable_env": os.environ.get("DISABLE_MELANOMA"),
+            "melanoma_h5_path": melanoma_legacy_h5_path,
+            "melanoma_h5_exists": os.path.exists(melanoma_legacy_h5_path),
         }
     ), 200
 
