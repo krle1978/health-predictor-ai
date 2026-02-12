@@ -271,6 +271,24 @@ def health():
     ), 200
 
 
+@app.route("/debug/load-melanoma", methods=["GET"])
+def debug_load_melanoma():
+    global melanoma_model, _melanoma_load_error, _melanoma_tried
+    _melanoma_tried = False
+    melanoma_model = None
+    _melanoma_load_error = None
+    ensure_melanoma_model_loaded()
+    return jsonify(
+        {
+            "loaded": melanoma_model is not None,
+            "error": _melanoma_load_error,
+            "tried": _melanoma_tried,
+            "h5": melanoma_legacy_h5_path,
+            "exists": os.path.exists(melanoma_legacy_h5_path),
+        }
+    ), 200
+
+
 # === PREDICT HEART ===
 @app.route("/predict/heart", methods=["POST"])
 def predict_heart():
