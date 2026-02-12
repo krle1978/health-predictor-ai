@@ -20,8 +20,19 @@ export async function POST(req: Request) {
     )
   }
 
-  const body = await req.json()
   const backendUrl = `${base.replace(/\/$/, "")}/predict/heart`
+
+  let body: any
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON in request body" }, { status: 400 })
+  }
+
+  // hard timeout so YOU control the failure mode (instead of random proxy timing out)
+  const controller = new AbortController()
+  const timeoutMs = Number(process.env.PREDICT_TIMEOUT_MS ?? 55000) // 55s default
+  const t = setTimeout(() => controller.abort(), timeoutMs)
 
   try {
     const res = await fetch(backendUrl, {
@@ -29,21 +40,68 @@ export async function POST(req: Request) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
       cache: "no-store",
+      signal: controller.signal,
     })
 
+    const contentType = res.headers.get("content-type") || ""
     const text = await res.text()
+
+    // If backend did not return JSON, normalize to JSON error for the frontend.
+    const isJsonLike =
+      contentType.includes("application/json") || text.trim().startsWith("{") || text.trim().startsWith("[")
+
+    if (!res.ok) {
+      return NextResponse.json(
+        {
+          error: "Backend responded with an error",
+          backendUrl,
+          status: res.status,
+          backendContentType: contentType,
+          backendBodyPreview: text.slice(0, 2000),
+        },
+        { status: 502 }
+      )
+    }
+
+    if (!isJsonLike) {
+      return NextResponse.json(
+        {
+          error: "Backend returned non-JSON response",
+          backendUrl,
+          status: res.status,
+          backendContentType: contentType,
+          backendBodyPreview: text.slice(0, 2000),
+        },
+        { status: 502 }
+      )
+    }
+
     try {
-      return NextResponse.json(JSON.parse(text), { status: res.status })
+      return NextResponse.json(JSON.parse(text), { status: 200 })
     } catch {
       return NextResponse.json(
-        { error: "Invalid response from backend", backendUrl, status: res.status, body: text.slice(0, 2000) },
+        {
+          error: "Backend returned invalid JSON",
+          backendUrl,
+          status: res.status,
+          backendContentType: contentType,
+          backendBodyPreview: text.slice(0, 2000),
+        },
         { status: 502 }
       )
     }
   } catch (err: any) {
+    const isAbort = err?.name === "AbortError"
     return NextResponse.json(
-      { error: "Backend unreachable", backendUrl, details: err?.message || String(err) },
-      { status: 502 }
+      {
+        error: isAbort ? "Backend request timed out" : "Backend unreachable",
+        backendUrl,
+        timeoutMs,
+        details: err?.message || String(err),
+      },
+      { status: 504 }
     )
+  } finally {
+    clearTimeout(t)
   }
 }
