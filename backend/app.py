@@ -6,6 +6,8 @@
 import io
 import os
 import threading
+import time
+from datetime import datetime, timezone
 from typing import Any
 
 import h5py
@@ -280,9 +282,22 @@ def health():
 # === PREDICT HEART ===
 @app.route("/predict/heart", methods=["POST"])
 def predict_heart():
-    if heart_model is None:
-        return jsonify({"error": f"Heart model failed to load: {heart_load_error}"}), 503
+    started_at = datetime.now(timezone.utc).isoformat()
+    start_perf = time.perf_counter()
+    content_type = request.headers.get("Content-Type", "")
+    data_preview = request.get_json(silent=True)
+    payload_keys = sorted(data_preview.keys()) if isinstance(data_preview, dict) else []
+    app.logger.info(
+        "START heart ts=%s content_type=%s payload_keys=%s",
+        started_at,
+        content_type,
+        payload_keys,
+    )
+
     try:
+        if heart_model is None:
+            return jsonify({"error": f"Heart model failed to load: {heart_load_error}"}), 503
+
         data = request.get_json(force=True)
         X = _extract_ordered_features(data, HEART_FEATURES)
         # Apply scaler only when it matches heart feature count.
@@ -294,7 +309,12 @@ def predict_heart():
         label = "Positive" if prob >= 0.5 else "Negative"
         return jsonify({"prediction": label, "confidence": round(prob, 3)})
     except Exception as e:
-        return jsonify({"error": str(e)}), 400
+        app.logger.exception("ERROR heart ts=%s", datetime.now(timezone.utc).isoformat())
+        return jsonify({"error": "Internal server error", "details": str(e)}), 500
+    finally:
+        ended_at = datetime.now(timezone.utc).isoformat()
+        duration_ms = round((time.perf_counter() - start_perf) * 1000, 2)
+        app.logger.info("END heart ts=%s duration_ms=%s", ended_at, duration_ms)
 
 
 # === PREDICT DIABETES ===
