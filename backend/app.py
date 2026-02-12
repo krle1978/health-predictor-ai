@@ -252,11 +252,17 @@ def root():
 
 @app.route("/health", methods=["GET"])
 def health():
+    try:
+        ensure_melanoma_model_loaded()
+    except Exception as e:
+        pass
+
     return jsonify(
         {
             "status": "ok",
             "heart_loaded": heart_model is not None,
             "melanoma_loaded": melanoma_model is not None,
+            "melanoma_tried": _melanoma_tried,
             "melanoma_error": _melanoma_load_error,
             "melanoma_disable_env": os.environ.get("DISABLE_MELANOMA"),
             "melanoma_h5_path": melanoma_legacy_h5_path,
