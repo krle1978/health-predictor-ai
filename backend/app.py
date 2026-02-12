@@ -79,7 +79,7 @@ melanoma_label_names: list[str] | None = None
 melanoma_image_size = (160, 160)
 melanoma_num_classes = 8
 _melanoma_lock = threading.Lock()
-_melanoma_tried = False
+_melanoma_loading = False
 _melanoma_load_error: str | None = None
 
 melanoma_model_path_keras = os.path.join(MODELS_DIR, "efficientnet_isic2019.keras")
@@ -213,24 +213,31 @@ def _try_load_melanoma_model() -> tf.keras.Model:
 
 
 def ensure_melanoma_model_loaded() -> None:
-    global melanoma_model, _melanoma_tried, _melanoma_load_error
+    global melanoma_model, _melanoma_loading, _melanoma_load_error
 
     if os.environ.get("DISABLE_MELANOMA", "").strip() == "1":
         return
 
-    if melanoma_model is not None or _melanoma_tried:
+    if melanoma_model is not None:
         return
 
     with _melanoma_lock:
-        if melanoma_model is not None or _melanoma_tried:
+        if melanoma_model is not None:
             return
-        _melanoma_tried = True
+        if _melanoma_loading:
+            return
+
+        _melanoma_loading = True
+        _melanoma_load_error = None
+
         try:
             melanoma_model = _try_load_melanoma_model()
             _melanoma_load_error = None
         except Exception as e:
             melanoma_model = None
             _melanoma_load_error = str(e)
+        finally:
+            _melanoma_loading = False
 
 
 def _preload_melanoma_background() -> None:  # pragma: no cover
@@ -252,39 +259,13 @@ def root():
 
 @app.route("/health", methods=["GET"])
 def health():
-    try:
-        ensure_melanoma_model_loaded()
-    except Exception as e:
-        pass
-
     return jsonify(
         {
             "status": "ok",
             "heart_loaded": heart_model is not None,
             "melanoma_loaded": melanoma_model is not None,
-            "melanoma_tried": _melanoma_tried,
+            "melanoma_loading": _melanoma_loading,
             "melanoma_error": _melanoma_load_error,
-            "melanoma_disable_env": os.environ.get("DISABLE_MELANOMA"),
-            "melanoma_h5_path": melanoma_legacy_h5_path,
-            "melanoma_h5_exists": os.path.exists(melanoma_legacy_h5_path),
-        }
-    ), 200
-
-
-@app.route("/debug/load-melanoma", methods=["GET"])
-def debug_load_melanoma():
-    global melanoma_model, _melanoma_load_error, _melanoma_tried
-    _melanoma_tried = False
-    melanoma_model = None
-    _melanoma_load_error = None
-    ensure_melanoma_model_loaded()
-    return jsonify(
-        {
-            "loaded": melanoma_model is not None,
-            "error": _melanoma_load_error,
-            "tried": _melanoma_tried,
-            "h5": melanoma_legacy_h5_path,
-            "exists": os.path.exists(melanoma_legacy_h5_path),
         }
     ), 200
 
