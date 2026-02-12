@@ -45,12 +45,13 @@ export default function BackendGate({ children }: { children: React.ReactNode })
       setError(null);
       setAttempt(0);
 
-      const maxAttempts = 18; // ~3 min with 10s request timeout
       const requestTimeoutMs = 10_000;
+      let i = 0;
 
-      for (let i = 0; i < maxAttempts; i += 1) {
+      while (!cancelled) {
         if (cancelled) return;
-        setAttempt(i + 1);
+        i += 1;
+        setAttempt(i);
 
         try {
           const controller = new AbortController();
@@ -87,14 +88,16 @@ export default function BackendGate({ children }: { children: React.ReactNode })
           setLastCheckedAt(Date.now());
           const msg =
             e?.name === "AbortError" ? `timeout after ${requestTimeoutMs / 1000}s` : e?.message || "fetch failed";
-          setError(`Cannot reach backend (${msg}).`);
+          if (e?.name === "AbortError") {
+            setError("Backend is still starting. Waiting for API to become ready...");
+          } else {
+            setError(`Cannot reach backend (${msg}).`);
+          }
         }
 
-        const delay = Math.min(1000, 250 * Math.pow(2, Math.min(i, 2)));
+        const delay = Math.min(3000, 250 * Math.pow(2, Math.min(i, 4)));
         await sleep(delay);
       }
-
-      if (!cancelled) setChecking(false);
     };
 
     run();
