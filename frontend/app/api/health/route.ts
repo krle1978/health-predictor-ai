@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
+const HEALTH_TIMEOUT_MS = Number(process.env.HEALTH_TIMEOUT_MS || 15_000)
 
 function getApiBase() {
   return process.env.API_BASE ?? process.env.NEXT_PUBLIC_API_BASE ?? null
@@ -22,7 +23,13 @@ export async function GET() {
 
   const backendUrl = `${base.replace(/\/$/, "")}/health`
   try {
-    const res = await fetch(backendUrl, { method: "GET", cache: "no-store" })
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), HEALTH_TIMEOUT_MS)
+    const res = await fetch(backendUrl, {
+      method: "GET",
+      cache: "no-store",
+      signal: controller.signal,
+    }).finally(() => clearTimeout(timeout))
     const text = await res.text().catch(() => "")
 
     if (!res.ok) {
@@ -35,9 +42,15 @@ export async function GET() {
     // Backend might return plain text; pass through as JSON-ish status.
     return NextResponse.json({ ok: true, status: res.status, body: text }, { status: 200 })
   } catch (err: any) {
+    const isTimeout = err?.name === "AbortError"
     return NextResponse.json(
-      { error: "Backend unreachable", backendUrl, details: err?.message || String(err) },
-      { status: 502 }
+      {
+        error: isTimeout ? "Backend health check timed out" : "Backend unreachable",
+        backendUrl,
+        timeoutMs: HEALTH_TIMEOUT_MS,
+        details: err?.message || String(err),
+      },
+      { status: isTimeout ? 504 : 502 }
     )
   }
 }

@@ -45,14 +45,16 @@ export default function BackendGate({ children }: { children: React.ReactNode })
       setError(null);
       setAttempt(0);
 
-      const maxAttempts = 120; // ~2 min (with backoff capped at 1s)
+      const maxAttempts = 18; // ~3 min with 10s request timeout
+      const requestTimeoutMs = 10_000;
+
       for (let i = 0; i < maxAttempts; i += 1) {
         if (cancelled) return;
         setAttempt(i + 1);
 
         try {
           const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 2500);
+          const timeout = setTimeout(() => controller.abort(), requestTimeoutMs);
           const res = await fetch(`/api/health`, {
             method: "GET",
             cache: "no-store",
@@ -70,11 +72,22 @@ export default function BackendGate({ children }: { children: React.ReactNode })
           }
 
           const text = await res.text().catch(() => "");
-          setError(`Backend nije spreman (HTTP ${res.status}). ${text ? "Odgovor: " + text : ""}`.trim());
+          let details = text.trim();
+          try {
+            const parsed = JSON.parse(text);
+            details = [parsed?.error, parsed?.details, parsed?.hint, parsed?.body]
+              .filter((v) => typeof v === "string" && v.trim().length > 0)
+              .join(" | ");
+          } catch {
+            // Keep raw response text for non-JSON backend replies.
+          }
+
+          setError(`Backend is not ready (HTTP ${res.status})${details ? `: ${details}` : ""}`);
         } catch (e: any) {
           setLastCheckedAt(Date.now());
-          const msg = e?.name === "AbortError" ? "timeout" : (e?.message || "fetch failed");
-          setError(`Ne mogu da kontaktiram backend (${msg}).`);
+          const msg =
+            e?.name === "AbortError" ? `timeout after ${requestTimeoutMs / 1000}s` : e?.message || "fetch failed";
+          setError(`Cannot reach backend (${msg}).`);
         }
 
         const delay = Math.min(1000, 250 * Math.pow(2, Math.min(i, 2)));
@@ -114,33 +127,27 @@ export default function BackendGate({ children }: { children: React.ReactNode })
 
       {!ready && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 px-4">
-          <div className="w-full max-w-xl rounded-2xl bg-white shadow-2xl border border-brandCyan/30 p-6">
+          <div className="w-full max-w-xl rounded-2xl border border-brandCyan/30 bg-white p-6 shadow-2xl">
             <div className="flex items-start gap-3">
-              <div className="mt-1 h-5 w-5 rounded-full border-2 border-brandCyan border-t-transparent animate-spin" />
+              <div className="mt-1 h-5 w-5 animate-spin rounded-full border-2 border-brandCyan border-t-transparent" />
               <div className="flex-1">
-                <h2 className="text-xl font-semibold text-brandBlue">Ucitavam backend...</h2>
-                <p className="text-sm text-gray-600 mt-1">
-                  Aplikacija je privremeno zakljucana dok API ne bude spreman.
-                </p>
-                <p className="text-xs text-gray-500 mt-2 break-words">
-                  API: /api/health{attempt ? ` • pokusaj ${attempt}` : ""}
-                </p>
+                <h2 className="text-xl font-semibold text-brandBlue">Loading backend...</h2>
+                <p className="mt-1 text-sm text-gray-600">The app is temporarily locked until the API is ready.</p>
+                <p className="mt-2 break-words text-xs text-gray-500">API: /api/health{attempt ? ` - attempt ${attempt}` : ""}</p>
                 {error && (
-                  <div className="mt-3 rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">
-                    {error}
-                  </div>
+                  <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>
                 )}
               </div>
             </div>
 
-            <div className="mt-5 rounded-xl bg-gray-50 border border-gray-200 p-4">
-              <h3 className="font-semibold text-brandBlue">Kako koristiti aplikaciju</h3>
-              <ul className="mt-2 list-disc pl-5 text-sm text-gray-700 space-y-1">
-                <li>Izaberi modul: Heart / Diabetes / Stroke / Melanoma.</li>
-                <li>Popuni sva polja brojevima (bez praznih vrednosti).</li>
-                <li>Za Melanoma: ubaci jasnu sliku koze i klikni "Predict".</li>
-                <li>Rezultat prikazuje predikciju i procenu sigurnosti (confidence).</li>
-                <li>Ako dobijes gresku: proveri backend URL u environment var.</li>
+            <div className="mt-5 rounded-xl border border-gray-200 bg-gray-50 p-4">
+              <h3 className="font-semibold text-brandBlue">How to use the app</h3>
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-700">
+                <li>Pick a module: Heart / Diabetes / Stroke / Melanoma.</li>
+                <li>Fill in all fields with numeric values (no empty fields).</li>
+                <li>For Melanoma, upload a clear skin image and click "Predict".</li>
+                <li>The result shows the prediction and confidence score.</li>
+                <li>If you get an error, verify the backend URL in environment variables.</li>
               </ul>
             </div>
 
@@ -148,17 +155,17 @@ export default function BackendGate({ children }: { children: React.ReactNode })
               <button
                 type="button"
                 onClick={() => setRefreshToken((n) => n + 1)}
-                className="px-4 py-2 rounded-lg border border-brandCyan/40 text-brandBlue hover:bg-brandCyan/10 transition"
+                className="rounded-lg border border-brandCyan/40 px-4 py-2 text-brandBlue transition hover:bg-brandCyan/10"
               >
-                Pokusaj ponovo
+                Try again
               </button>
               <a
                 href="/api/health"
                 target="_blank"
                 rel="noreferrer"
-                className="px-4 py-2 rounded-lg bg-brandCyan text-white font-semibold hover:bg-brandCyan/90 transition"
+                className="rounded-lg bg-brandCyan px-4 py-2 font-semibold text-white transition hover:bg-brandCyan/90"
               >
-                Otvori /health
+                Open /api/health
               </a>
             </div>
           </div>
