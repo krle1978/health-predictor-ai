@@ -121,12 +121,16 @@ export default function BackendGate({ children }: { children: React.ReactNode })
 
   return (
     <BackendStatusContext.Provider value={status}>
-      <div
-        aria-hidden={!ready}
-        style={!ready ? { filter: "blur(2px)", pointerEvents: "none", userSelect: "none" } : undefined}
-      >
-        {children}
-      </div>
+      {ready ? (
+        <div>{children}</div>
+      ) : (
+        <div
+          aria-hidden="true"
+          style={{ filter: "blur(2px)", pointerEvents: "none", userSelect: "none" }}
+        >
+          {children}
+        </div>
+      )}
 
       {!ready && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 px-4">
