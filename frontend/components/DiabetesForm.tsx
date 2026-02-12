@@ -20,6 +20,7 @@ export default function PredictionOfDiabetes() {
 
   const [result, setResult] = useState<{ prediction: string; confidence: number } | null>(null)
   const [loading, setLoading] = useState(false)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   // 🧮 BMI calculation
   const height = parseFloat(formData.Height)
@@ -41,6 +42,7 @@ export default function PredictionOfDiabetes() {
     e.preventDefault()
     setLoading(true)
     setResult(null)
+    setErrorMessage(null)
 
     try {
       const payload = {
@@ -62,11 +64,15 @@ export default function PredictionOfDiabetes() {
       })
 
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || "Prediction failed")
+      if (!res.ok) {
+        setErrorMessage(data.error || "Prediction failed")
+        return
+      }
 
       setResult({ prediction: data.prediction, confidence: data.confidence })
     } catch (error) {
-      console.error(error)
+      console.error("Diabetes prediction request failed:", error)
+      setErrorMessage("Prediction request failed. Please try again.")
       setResult(null)
     } finally {
       setLoading(false)
@@ -145,6 +151,12 @@ export default function PredictionOfDiabetes() {
           >
             {loading ? "Predicting..." : "Predict"}
           </button>
+
+          {errorMessage && (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              {errorMessage}
+            </div>
+          )}
         </form>
 
         <details className="mt-6 cursor-pointer text-sm text-gray-700 bg-gray-50 p-4 rounded-lg">

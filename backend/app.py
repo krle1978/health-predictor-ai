@@ -33,8 +33,14 @@ except Exception as e:  # pragma: no cover
     heart_model = None
     heart_load_error = str(e)
 
-# Diabetes not deployed yet
-diabetes_model = None
+# Diabetes model (.h5)
+diabetes_model_path = os.path.join(MODELS_DIR, "model_baseline_dijabetes.h5")
+try:
+    diabetes_model = tf.keras.models.load_model(diabetes_model_path, compile=False)
+    diabetes_load_error = None
+except Exception as e:  # pragma: no cover
+    diabetes_model = None
+    diabetes_load_error = str(e)
 
 # Optional scaler for heart model
 scaler_path = os.path.join(MODELS_DIR, "scaler_baseline.pkl")
@@ -263,6 +269,7 @@ def health():
         {
             "status": "ok",
             "heart_loaded": heart_model is not None,
+            "diabetes_loaded": diabetes_model is not None,
             "melanoma_loaded": melanoma_model is not None,
             "melanoma_loading": _melanoma_loading,
             "melanoma_error": _melanoma_load_error,
@@ -278,7 +285,9 @@ def predict_heart():
     try:
         data = request.get_json(force=True)
         X = _extract_ordered_features(data, HEART_FEATURES)
-        if scaler is not None:
+        # Apply scaler only when it matches heart feature count.
+        scaler_features = getattr(scaler, "n_features_in_", None) if scaler is not None else None
+        if scaler is not None and (scaler_features is None or int(scaler_features) == X.shape[1]):
             X = scaler.transform(X)
 
         prob = _to_prob(heart_model.predict(X, verbose=0))
@@ -288,10 +297,19 @@ def predict_heart():
         return jsonify({"error": str(e)}), 400
 
 
-# === PREDICT DIABETES (not deployed) ===
+# === PREDICT DIABETES ===
 @app.route("/predict/diabetes", methods=["POST"])
 def predict_diabetes():
-    return jsonify({"error": "Diabetes model not deployed yet"}), 501
+    if diabetes_model is None:
+        return jsonify({"error": f"Diabetes model failed to load: {diabetes_load_error}"}), 503
+    try:
+        data = request.get_json(force=True)
+        X = _extract_ordered_features(data, DIABETES_FEATURES)
+        prob = _to_prob(diabetes_model.predict(X, verbose=0))
+        label = "Positive" if prob >= 0.5 else "Negative"
+        return jsonify({"prediction": label, "confidence": round(prob, 3)})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
 
 
 # === PREDICT MELANOMA ===
