@@ -8,7 +8,12 @@ export default function PredictionOfHeartDisease() {
     age: "",
     sex: "",
     cp: "",
+    trestbps: "",
+    chol: "",
+    fbs: "",
+    restecg: "",
     thalach: "",
+    exang: "",
     ca: "",
     oldpeak: "",
     thal: "",
@@ -34,7 +39,12 @@ export default function PredictionOfHeartDisease() {
       age: Number(formData.age),
       sex: Number(formData.sex),
       cp: Number(formData.cp),
+      trestbps: Number(formData.trestbps),
+      chol: Number(formData.chol),
+      fbs: Number(formData.fbs),
+      restecg: Number(formData.restecg),
       thalach: Number(formData.thalach),
+      exang: Number(formData.exang),
       ca: Number(formData.ca),
       oldpeak: Number(formData.oldpeak),
       thal: Number(formData.thal),
@@ -111,6 +121,35 @@ export default function PredictionOfHeartDisease() {
               <option value="185">180+ bpm</option>
             </select>
 
+            <select name="trestbps" value={formData.trestbps} onChange={handleChange} required className="input">
+              <option value="">Resting Blood Pressure</option>
+              <option value="110">Below 120 mmHg</option>
+              <option value="130">120-139 mmHg</option>
+              <option value="150">140-159 mmHg</option>
+              <option value="170">160+ mmHg</option>
+            </select>
+
+            <select name="chol" value={formData.chol} onChange={handleChange} required className="input">
+              <option value="">Serum Cholesterol</option>
+              <option value="180">Below 200 mg/dL</option>
+              <option value="220">200-239 mg/dL</option>
+              <option value="260">240-279 mg/dL</option>
+              <option value="300">280+ mg/dL</option>
+            </select>
+
+            <select name="fbs" value={formData.fbs} onChange={handleChange} required className="input">
+              <option value="">Fasting Blood Sugar &gt;120</option>
+              <option value="0">No</option>
+              <option value="1">Yes</option>
+            </select>
+
+            <select name="restecg" value={formData.restecg} onChange={handleChange} required className="input">
+              <option value="">Resting ECG</option>
+              <option value="0">0 - Normal</option>
+              <option value="1">1 - ST-T abnormality</option>
+              <option value="2">2 - Left ventricular hypertrophy</option>
+            </select>
+
             <select name="ca" value={formData.ca} onChange={handleChange} required className="input">
               <option value="">Major Vessels (Fluoroscopy)</option>
               <option value="0">0 - None highlighted</option>
@@ -141,6 +180,12 @@ export default function PredictionOfHeartDisease() {
               <option value="1">1 - Flat</option>
               <option value="2">2 - Downsloping</option>
             </select>
+
+            <select name="exang" value={formData.exang} onChange={handleChange} required className="input">
+              <option value="">Exercise-Induced Angina</option>
+              <option value="0">No</option>
+              <option value="1">Yes</option>
+            </select>
           </div>
 
           <button
@@ -164,7 +209,12 @@ export default function PredictionOfHeartDisease() {
             <li><b>age:</b> Choose your age range. The app maps it to a representative value (35, 45, 55, 65, 75).</li>
             <li><b>sex:</b> 1 = Male, 0 = Female.</li>
             <li><b>cp (chest pain type):</b> 0 = Typical angina, 1 = Atypical angina, 2 = Non-anginal pain, 3 = Asymptomatic.</li>
+            <li><b>trestbps:</b> Resting blood pressure (mmHg).</li>
+            <li><b>chol:</b> Serum cholesterol (mg/dL).</li>
+            <li><b>fbs:</b> Fasting blood sugar greater than 120 mg/dL (0 = No, 1 = Yes).</li>
+            <li><b>restecg:</b> Resting ECG result (0, 1, 2).</li>
             <li><b>thalach:</b> Maximum heart rate reached during activity/test. Pick the closest bpm group.</li>
+            <li><b>exang:</b> Exercise-induced angina (0 = No, 1 = Yes).</li>
             <li><b>ca:</b> Number of major vessels highlighted by fluoroscopy: 0, 1, 2, or 3.</li>
             <li><b>oldpeak:</b> ST depression (exercise vs rest ECG): 0.0 none, 0.1-0.9 mild, 1.0-1.9 moderate, 2.0-2.9 high, 3.0+ very high.</li>
             <li><b>thal:</b> Thalassemia test result: 1 normal, 2 fixed defect, 3 reversible defect.</li>

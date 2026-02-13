@@ -120,7 +120,6 @@ export default function Page() {
                 width={650}
                 height={500}
                 className="rounded-2xl shadow-xl object-cover"
-                priority
               />
             </motion.div>
           </AnimatePresence>
@@ -134,8 +133,8 @@ export default function Page() {
               src={getImageForView(view)}
               alt="Mobile Background"
               fill
+              sizes="100vw"
               className="object-cover object-center"
-              priority
             />
           </div>
 
