@@ -1,0 +1,27 @@
+<svg width="800" height="1200" viewBox="0 0 800 1200" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="frameGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#d8c39f"/>
+      <stop offset="100%" stop-color="#b58c57"/>
+    </linearGradient>
+    <linearGradient id="woodGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#9b7346"/>
+      <stop offset="55%" stop-color="#7a5630"/>
+      <stop offset="100%" stop-color="#604124"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="800" height="1200" fill="#e9edf2"/>
+  <rect x="42" y="26" width="716" height="1148" rx="34" fill="url(#frameGrad)"/>
+  <rect x="86" y="76" width="628" height="1048" rx="22" fill="url(#woodGrad)"/>
+
+  <rect x="136" y="132" width="528" height="404" rx="18" fill="#ad8756" opacity="0.73"/>
+  <rect x="136" y="604" width="528" height="460" rx="18" fill="#ad8756" opacity="0.73"/>
+  <rect x="376" y="132" width="48" height="932" fill="#c9a16b" opacity="0.36"/>
+
+  <rect x="104" y="76" width="592" height="24" rx="10" fill="#6c4b2b" opacity="0.52"/>
+  <rect x="104" y="1100" width="592" height="24" rx="10" fill="#4f351e" opacity="0.52"/>
+
+  <circle cx="618" cy="594" r="16" fill="#e8d6ba"/>
+  <rect x="608" y="579" width="20" height="30" rx="10" fill="#cfb188"/>
+</svg>

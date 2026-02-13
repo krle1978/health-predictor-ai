@@ -6,6 +6,7 @@
 import io
 import logging
 import os
+import sys
 import threading
 import time
 from typing import Any
@@ -31,6 +32,62 @@ app = Flask(__name__)
 CORS(app)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("hpai")
+
+
+class WebFeatureBuilder:
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        # Model was trained on engineered features (Age, BMI). This builder
+        # adapts web inputs (AgeYears, HeightCm, WeightKg, etc.) into that shape.
+        df = X.copy() if isinstance(X, pd.DataFrame) else pd.DataFrame(X)
+
+        numeric_cols = [
+            "HighChol",
+            "Smoker",
+            "HeartDiseaseorAttack",
+            "HeightCm",
+            "WeightKg",
+            "PhysActivity",
+            "GenHlth",
+            "PhysHlth",
+            "DiffWalk",
+            "AgeYears",
+            "Age",
+            "BMI",
+        ]
+        for col in numeric_cols:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors="coerce")
+
+        age = df["Age"] if "Age" in df.columns else df["AgeYears"]
+        if "BMI" in df.columns:
+            bmi = df["BMI"]
+        else:
+            h_m = df["HeightCm"] / 100.0
+            bmi = (df["WeightKg"] / (h_m * h_m)).replace([np.inf, -np.inf], np.nan)
+
+        out = pd.DataFrame(
+            {
+                "HighChol": df["HighChol"],
+                "Smoker": df["Smoker"],
+                "HeartDiseaseorAttack": df["HeartDiseaseorAttack"],
+                "BMI": bmi,
+                "PhysActivity": df["PhysActivity"],
+                "GenHlth": df["GenHlth"],
+                "PhysHlth": df["PhysHlth"],
+                "DiffWalk": df["DiffWalk"],
+                "Age": age,
+            }
+        )
+        return out
+
+
+_main_module = sys.modules.get("__main__")
+if _main_module is not None and not hasattr(_main_module, "WebFeatureBuilder"):
+    setattr(_main_module, "WebFeatureBuilder", WebFeatureBuilder)
+
 
 try:
     tf.config.threading.set_intra_op_parallelism_threads(1)
@@ -96,26 +153,84 @@ except Exception as e:  # pragma: no cover
     heart_model = None
     heart_load_error = str(e)
 
-# Diabetes model (.h5)
-diabetes_model_path = os.path.join(MODELS_DIR, "model_baseline_dijabetes.h5")
+# Diabetes model (calibrated GradientBoosting .joblib)
+diabetes_model_path = os.path.join(MODELS_DIR, "diabetes_web_inputs_calibrated_GradientBoosting.joblib")
 try:
-    diabetes_model = tf.keras.models.load_model(diabetes_model_path, compile=False)
+    diabetes_model = joblib.load(diabetes_model_path)
     diabetes_load_error = None
+    try:
+        dummy = pd.DataFrame(
+            [
+                {
+                    "HighChol": 1.0,
+                    "Smoker": 0.0,
+                    "HeartDiseaseorAttack": 0.0,
+                    "HeightCm": 175.0,
+                    "WeightKg": 80.0,
+                    "PhysActivity": 1.0,
+                    "GenHlth": 3.0,
+                    "PhysHlth": 2.0,
+                    "DiffWalk": 0.0,
+                    "AgeYears": 52.0,
+                }
+            ]
+        )
+        _log_point("DIABETES warmup before")
+        if hasattr(diabetes_model, "predict_proba"):
+            diabetes_model.predict_proba(dummy)
+        else:
+            diabetes_model.predict(dummy)
+        _log_point("DIABETES warmup after")
+    except Exception as e:
+        logger.exception("DIABETES warmup failed: %s", e)
 except Exception as e:  # pragma: no cover
     diabetes_model = None
     diabetes_load_error = str(e)
 
+# Stroke model (scikit-learn calibrated pipeline .joblib)
+stroke_model_path = os.path.join(MODELS_DIR, "stroke_pipeline_calibrated_LogReg.joblib")
+try:
+    stroke_model = joblib.load(stroke_model_path)
+    stroke_load_error = None
+    try:
+        dummy = pd.DataFrame(
+            [
+                {
+                    "age": 55.0,
+                    "Systolic blood pressure": 130.0,
+                    "Diastolic blood pressure": 80.0,
+                    "Fasting Glucose": 95.0,
+                    "Glycohemoglobin": 5.6,
+                    "Low-density lipoprotein": 110.0,
+                    "High-density lipoprotein": 50.0,
+                    "Triglyceride": 140.0,
+                }
+            ]
+        )
+        _log_point("STROKE warmup before")
+        if hasattr(stroke_model, "predict_proba"):
+            stroke_model.predict_proba(dummy)
+        else:
+            stroke_model.predict(dummy)
+        _log_point("STROKE warmup after")
+    except Exception as e:
+        logger.exception("STROKE warmup failed: %s", e)
+except Exception as e:  # pragma: no cover
+    stroke_model = None
+    stroke_load_error = str(e)
+
 # === Feature Schemas ===
 DIABETES_FEATURES = [
     "HighChol",
-    "BMI",
     "Smoker",
     "HeartDiseaseorAttack",
+    "HeightCm",
+    "WeightKg",
     "PhysActivity",
     "GenHlth",
     "PhysHlth",
     "DiffWalk",
-    "Age",
+    "AgeYears",
 ]
 
 HEART_FEATURES = [
@@ -134,7 +249,16 @@ HEART_FEATURES = [
     "thal",
 ]
 
-STROKE_FEATURES = ["Age", "Hypertension", "HeartDisease", "AvgGlucoseLevel", "BMI"]
+STROKE_FEATURES = [
+    "age",
+    "Systolic blood pressure",
+    "Diastolic blood pressure",
+    "Fasting Glucose",
+    "Glycohemoglobin",
+    "Low-density lipoprotein",
+    "High-density lipoprotein",
+    "Triglyceride",
+]
 
 
 # === Helpers ===
@@ -351,6 +475,7 @@ def health():
             "status": "ok",
             "heart_loaded": heart_model is not None,
             "diabetes_loaded": diabetes_model is not None,
+            "stroke_loaded": stroke_model is not None,
             "melanoma_loaded": melanoma_model is not None,
             "melanoma_loading": _melanoma_loading,
             "melanoma_error": _melanoma_load_error,
@@ -427,9 +552,23 @@ def predict_diabetes():
     if diabetes_model is None:
         return jsonify({"error": f"Diabetes model failed to load: {diabetes_load_error}"}), 503
     try:
-        data = request.get_json(force=True)
-        X = _extract_ordered_features(data, DIABETES_FEATURES)
-        prob = _to_prob(diabetes_model.predict(X, verbose=0))
+        data = request.get_json(silent=True)
+        if not data:
+            return jsonify({"error": "Invalid JSON in request body"}), 400
+
+        X = _extract_ordered_frame(data, DIABETES_FEATURES)
+        if hasattr(diabetes_model, "predict_proba"):
+            y = diabetes_model.predict_proba(X)
+        else:
+            y = diabetes_model.predict(X)
+
+        y_arr = np.asarray(y)
+        if y_arr.ndim == 2 and y_arr.shape[1] >= 2:
+            classes = list(getattr(diabetes_model, "classes_", []))
+            pos_idx = classes.index(1) if 1 in classes else 1
+            prob = float(y_arr[0, pos_idx])
+        else:
+            prob = _to_prob(y_arr)
         label = "Positive" if prob >= 0.5 else "Negative"
         return jsonify({"prediction": label, "confidence": round(prob, 3)})
     except Exception as e:
@@ -492,10 +631,54 @@ def predict_melanoma():
         return jsonify({"error": str(e)}), 400
 
 
-# === STROKE PLACEHOLDER ===
+# === PREDICT STROKE ===
 @app.route("/predict/stroke", methods=["POST"])
 def predict_stroke():
-    return jsonify({"error": "Stroke model not implemented yet"}), 501
+    _log_point("STROKE predict entered")
+    t0 = time.perf_counter()
+    try:
+        if stroke_model is None:
+            _log_point("STROKE model unavailable")
+            return jsonify({"error": f"Stroke model failed to load: {stroke_load_error}"}), 503
+
+        data = request.get_json(silent=True)
+        if not data:
+            _log_point("STROKE invalid JSON body")
+            return jsonify({"error": "Invalid JSON in request body"}), 400
+        _log_point("STROKE after JSON parse")
+
+        X = _extract_ordered_frame(data, STROKE_FEATURES)
+        _log_point("STROKE after preprocessing")
+
+        t_pred0 = time.perf_counter()
+        if hasattr(stroke_model, "predict_proba"):
+            y = stroke_model.predict_proba(X)
+        else:
+            y = stroke_model.predict(X)
+        t_pred1 = time.perf_counter()
+        _log_point(f"STROKE after predict | predict_ms={(t_pred1 - t_pred0) * 1000:.0f}")
+
+        y_arr = np.asarray(y)
+        if y_arr.ndim == 2 and y_arr.shape[1] >= 2:
+            classes = list(getattr(stroke_model, "classes_", []))
+            pos_idx = classes.index(1) if 1 in classes else 1
+            prob = float(y_arr[0, pos_idx])
+        else:
+            prob = _to_prob(y_arr)
+
+        label = "Positive" if prob >= 0.5 else "Negative"
+        total_ms = (time.perf_counter() - t0) * 1000.0
+        _log_point(f"STROKE done | total_ms={total_ms:.0f}")
+        return jsonify(
+            {
+                "prediction": label,
+                "confidence": round(prob, 3),
+                "message": "High Stroke Risk" if label == "Positive" else "Low Stroke Risk",
+            }
+        )
+    except Exception as e:
+        logger.exception("STROKE exception")
+        return jsonify({"error": "Internal server error", "details": str(e)}), 500
 
 
 # === MAIN ENTRY ===

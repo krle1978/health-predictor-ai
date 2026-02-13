@@ -64,16 +64,19 @@ export default function PredictionOfMelanoma() {
           <p>
             Result: {result.prediction}{" "}
             {typeof result.confidence === "number" &&
-              `(${(result.confidence * 100).toFixed(2)}%)`}
+              `(${(result.confidence * 100).toFixed(2)}%)`}{" "}
+            <span className="text-sm text-gray-700">
+              - final Benign/Malignant decision with confidence score.
+            </span>
           </p>
           {typeof result.melanoma_prob === "number" && (
             <p className="text-sm text-gray-700">
-              MEL probability: {(result.melanoma_prob * 100).toFixed(2)}%
+              MEL probability: {(result.melanoma_prob * 100).toFixed(2)}% - estimated probability that this lesion is melanoma (MEL class).
             </p>
           )}
           {typeof result.top_class === "string" && typeof result.top_confidence === "number" && (
             <p className="text-sm text-gray-700">
-              Top class: {result.top_class} ({(result.top_confidence * 100).toFixed(2)}%)
+              Top class: {result.top_class} ({(result.top_confidence * 100).toFixed(2)}%) - most likely detailed skin-lesion class predicted by the model.
             </p>
           )}
         </div>

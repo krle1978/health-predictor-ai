@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, type CSSProperties } from "react"
 import Image from "next/image"
 import { motion, AnimatePresence } from "framer-motion"
 import Navbar from "@/components/Navbar"
@@ -52,6 +52,39 @@ export default function Page() {
     }
   }
 
+  const getDoorImageForCard = (card: View) => {
+    switch (card) {
+      case "heart":
+        return "/BackgroundPics/Heart_Confident Cardiologist Scene.png"
+      case "diabetes":
+        return "/BackgroundPics/Cyberpunk Medical Visionary.png"
+      case "stroke":
+        return "/BackgroundPics/Stroke_Modern Medical Professional.png"
+      case "melanoma":
+        return "/BackgroundPics/Melanoma_Confident Doctor's Exam.png"
+      default:
+        return "/BackgroundPics/Admissions_Hospital_Heroine.png"
+    }
+  }
+
+  const getProfessionForCard = (card: View) => {
+    switch (card) {
+      case "heart":
+        return "Cardiologist"
+      case "diabetes":
+        return "Diabetologist"
+      case "stroke":
+        return "Neurologist"
+      case "melanoma":
+        return "Dermatologist"
+      default:
+        return "Admissions"
+    }
+  }
+
+  const getDoorStyle = (card: View): CSSProperties =>
+    ({ ["--door-bg-image" as any]: `url("${getDoorImageForCard(card)}")` }) as CSSProperties
+
   return (
     <>
       <Navbar />
@@ -84,7 +117,7 @@ export default function Page() {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.3 }}
-              className="hidden md:grid gap-8 sm:grid-cols-2 md:grid-cols-2 w-full max-w-3xl"
+              className="hidden md:grid gap-8 sm:grid-cols-2 md:grid-cols-2 w-full max-w-3xl justify-items-center"
             >
               {visibleCards().map(btn => (
                 <motion.button
@@ -92,13 +125,16 @@ export default function Page() {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.97 }}
                   onClick={() => setView(btn.key as View)}
-                  className={`flex items-center justify-center h-48 rounded-2xl text-xl font-semibold 
-                              bg-gradient-to-b from-brandCyan/30 to-brandCyan/10 text-brandBlue 
-                              border border-brandCyan/40 hover:from-brandCyan/50 hover:to-brandCyan/20 
-                              transition-all duration-300 shadow-lg hover:shadow-xl
+                  style={getDoorStyle(btn.key as View)}
+                  className={`clinic-door-button flex items-center justify-center w-44 h-64 rounded-2xl text-xl font-semibold 
+                              transition-all duration-300
                               ${view === btn.key ? "hidden" : ""}`}
                 >
-                  {btn.label}
+                  <span aria-hidden="true" className="clinic-door-interior" />
+                  <span aria-hidden="true" className="clinic-door-leaf">
+                    <span className="clinic-door-plate">{getProfessionForCard(btn.key as View)}</span>
+                  </span>
+                  <span className="clinic-door-label">{btn.label}</span>
                 </motion.button>
               ))}
             </motion.section>
@@ -147,16 +183,18 @@ export default function Page() {
               <button
                 key={btn.key}
                 onClick={() => setView(btn.key as View)}
-                className={`flex flex-col items-center justify-center 
-                            text-sm font-semibold text-brandBlue 
-                            bg-gradient-to-b from-brandCyan/30 to-brandCyan/10
-                            border border-brandCyan/40 
-                            rounded-xl px-4 py-3 mx-1 shadow-md 
-                            hover:from-brandCyan/50 hover:to-brandCyan/20 
+                style={getDoorStyle(btn.key as View)}
+                className={`clinic-door-button flex flex-col items-center justify-center 
+                            text-sm font-semibold rounded-xl mx-1 flex-shrink-0
+                            w-[21vw] h-[30vw] min-w-[76px] min-h-[108px] max-w-[108px] max-h-[154px]
                             active:scale-95 transition-all
                             ${view === btn.key ? "hidden" : ""}`}
               >
-                {btn.label}
+                <span aria-hidden="true" className="clinic-door-interior" />
+                <span aria-hidden="true" className="clinic-door-leaf">
+                  <span className="clinic-door-plate">{getProfessionForCard(btn.key as View)}</span>
+                </span>
+                <span className="clinic-door-label">{btn.label}</span>
               </button>
             ))}
           </div>

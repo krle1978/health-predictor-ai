@@ -10,19 +10,17 @@ export default function PredictionOfDiabetes() {
     HeartDiseaseorAttack: "",
     Height: "",
     Weight: "",
-    BMI: "",
     PhysActivity: "",
     GenHlth: "",
     PhysHlth: "",
     DiffWalk: "",
-    Age: ""
+    Age: "",
   })
 
   const [result, setResult] = useState<{ prediction: string; confidence: number } | null>(null)
   const [loading, setLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
-  // 🧮 BMI calculation
   const height = parseFloat(formData.Height)
   const weight = parseFloat(formData.Weight)
   const bmi = height && weight ? +(weight / Math.pow(height / 100, 2)).toFixed(1) : 0
@@ -35,7 +33,7 @@ export default function PredictionOfDiabetes() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
-    setFormData(prev => ({ ...prev, [name]: value }))
+    setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -46,18 +44,27 @@ export default function PredictionOfDiabetes() {
 
     try {
       const payload = {
-        HighChol: formData.HighChol,
-        BMI: bmi,
-        Smoker: formData.Smoker,
-        HeartDiseaseorAttack: formData.HeartDiseaseorAttack,
-        PhysActivity: formData.PhysActivity,
-        GenHlth: formData.GenHlth,
-        PhysHlth: formData.PhysHlth,
-        DiffWalk: formData.DiffWalk,
-        Age: formData.Age
+        HighChol: Number(formData.HighChol),
+        Smoker: Number(formData.Smoker),
+        HeartDiseaseorAttack: Number(formData.HeartDiseaseorAttack),
+        HeightCm: Number(formData.Height),
+        WeightKg: Number(formData.Weight),
+        PhysActivity: Number(formData.PhysActivity),
+        GenHlth: Number(formData.GenHlth),
+        PhysHlth: Number(formData.PhysHlth),
+        DiffWalk: Number(formData.DiffWalk),
+        AgeYears: Number(formData.Age),
       }
 
-      const res = await fetch(`/api/predict/diabetes`, {
+      for (const [key, value] of Object.entries(payload)) {
+        if (!Number.isFinite(value)) {
+          setErrorMessage(`Missing or invalid value for: ${key}`)
+          setLoading(false)
+          return
+        }
+      }
+
+      const res = await fetch("/api/predict/diabetes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -82,9 +89,7 @@ export default function PredictionOfDiabetes() {
   return (
     <div className="relative w-full flex flex-col justify-center items-center">
       <div className="w-full bg-white rounded-2xl shadow-lg p-8 border border-brandCyan/40">
-        <h2 className="text-2xl font-semibold text-brandBlue mb-6">
-          Prediction of Diabetes
-        </h2>
+        <h2 className="text-2xl font-semibold text-brandBlue mb-6">Prediction of Diabetes</h2>
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="grid grid-cols-3 gap-4">
@@ -134,7 +139,7 @@ export default function PredictionOfDiabetes() {
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <input name="PhysHlth" type="number" placeholder="Physical Health (0–30 days)" value={formData.PhysHlth} onChange={handleChange} className="input" />
+            <input name="PhysHlth" type="number" placeholder="Physical Health (0-30 days)" value={formData.PhysHlth} onChange={handleChange} className="input" />
             <select name="DiffWalk" value={formData.DiffWalk} onChange={handleChange} className="input">
               <option value="">Difficulty Walking?</option>
               <option value="0">No</option>
@@ -160,18 +165,17 @@ export default function PredictionOfDiabetes() {
         </form>
 
         <details className="mt-6 cursor-pointer text-sm text-gray-700 bg-gray-50 p-4 rounded-lg">
-          <summary className="font-semibold text-brandBlue">🛈 Instructions (click to expand)</summary>
+          <summary className="font-semibold text-brandBlue">Instructions (click to expand)</summary>
           <ul className="mt-3 list-disc pl-6 space-y-1">
-            <li><b>HighChol:</b> 0 = No, 1 = Yes — High cholesterol diagnosis.</li>
-            <li><b>Smoker:</b> 0 = No, 1 = Yes — Smoking status.</li>
-            <li><b>HeartDiseaseorAttack:</b> 0 = No, 1 = Yes — Heart disease history.</li>
-            <li><b>Height / Weight:</b> Height in cm, Weight in kg — Used to compute BMI.</li>
-            <li><b>BMI:</b> Computed automatically; 18.5–24.9 is healthy.</li>
-            <li><b>PhysActivity:</b> 0 = No, 1 = Yes — Regular physical activity.</li>
-            <li><b>GenHlth:</b> 1 = Excellent → 5 = Poor — General health rating.</li>
-            <li><b>PhysHlth:</b> 0–30 days — Days of poor physical health last month.</li>
-            <li><b>DiffWalk:</b> 0 = No, 1 = Yes — Walking difficulties.</li>
-            <li><b>Age:</b> in years (integer).</li>
+            <li><b>HighChol:</b> 0 = No, 1 = Yes.</li>
+            <li><b>Smoker:</b> 0 = No, 1 = Yes.</li>
+            <li><b>HeartDiseaseorAttack:</b> 0 = No, 1 = Yes.</li>
+            <li><b>HeightCm / WeightKg:</b> Height in cm and weight in kg. BMI preview is shown for convenience.</li>
+            <li><b>PhysActivity:</b> 0 = No, 1 = Yes.</li>
+            <li><b>GenHlth:</b> 1 = Excellent, 5 = Poor.</li>
+            <li><b>PhysHlth:</b> 0-30 days.</li>
+            <li><b>DiffWalk:</b> 0 = No, 1 = Yes.</li>
+            <li><b>AgeYears:</b> Age in years.</li>
           </ul>
         </details>
 
@@ -195,7 +199,7 @@ export default function PredictionOfDiabetes() {
                 animate={{ scale: 1.05 }}
                 transition={{ duration: 0.6, repeat: Infinity, repeatType: "reverse", ease: "easeInOut" }}
               >
-                {result.prediction === "Positive" ? "⚠️ Diabetes Risk Detected" : "✅ No Diabetes Risk"}
+                {result.prediction === "Positive" ? "Diabetes Risk Detected" : "No Diabetes Risk"}
               </motion.p>
               <motion.p
                 className="text-2xl font-bold mt-2"
