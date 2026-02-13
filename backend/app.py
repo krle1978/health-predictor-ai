@@ -16,6 +16,7 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 import h5py
 import joblib
 import numpy as np
+import pandas as pd
 import tensorflow as tf
 from flask import Flask, g, jsonify, request
 from flask_cors import CORS
@@ -58,22 +59,36 @@ MODELS_DIR = os.path.join(os.path.dirname(__file__), "models")
 
 # === Load Models ===
 
-# Heart model (.keras)
-heart_model_path = os.path.join(MODELS_DIR, "model_heart_8f.keras")
+# Heart model (scikit-learn pipeline .joblib)
+heart_model_path = os.path.join(MODELS_DIR, "heart_model_pipeline.joblib")
 try:
-    heart_model = tf.keras.models.load_model(heart_model_path, compile=False)
+    heart_model = joblib.load(heart_model_path)
     heart_load_error = None
     try:
-        dummy_features = 13
-        input_shape = getattr(heart_model, "input_shape", None)
-        if isinstance(input_shape, list) and input_shape:
-            input_shape = input_shape[0]
-        if isinstance(input_shape, tuple) and input_shape and input_shape[-1]:
-            dummy_features = int(input_shape[-1])
-
-        dummy = np.zeros((1, dummy_features), dtype=np.float32)
+        dummy = pd.DataFrame(
+            [
+                {
+                    "age": 63.0,
+                    "sex": 1.0,
+                    "cp": 3.0,
+                    "trestbps": 145.0,
+                    "chol": 233.0,
+                    "fbs": 1.0,
+                    "restecg": 0.0,
+                    "thalach": 150.0,
+                    "exang": 0.0,
+                    "oldpeak": 2.3,
+                    "slope": 0.0,
+                    "ca": 0.0,
+                    "thal": 1.0,
+                }
+            ]
+        )
         _log_point("HEART warmup before")
-        heart_model.predict(dummy, verbose=0)
+        if hasattr(heart_model, "predict_proba"):
+            heart_model.predict_proba(dummy)
+        else:
+            heart_model.predict(dummy)
         _log_point("HEART warmup after")
     except Exception as e:
         logger.exception("HEART warmup failed: %s", e)
@@ -90,11 +105,6 @@ except Exception as e:  # pragma: no cover
     diabetes_model = None
     diabetes_load_error = str(e)
 
-# Optional scaler for heart model
-scaler_path = os.path.join(MODELS_DIR, "scaler_baseline.pkl")
-scaler = joblib.load(scaler_path) if os.path.exists(scaler_path) else None
-
-
 # === Feature Schemas ===
 DIABETES_FEATURES = [
     "HighChol",
@@ -108,7 +118,21 @@ DIABETES_FEATURES = [
     "Age",
 ]
 
-HEART_FEATURES = ["age", "sex", "cp", "thalach", "ca", "oldpeak", "thal", "slope"]
+HEART_FEATURES = [
+    "age",
+    "sex",
+    "cp",
+    "trestbps",
+    "chol",
+    "fbs",
+    "restecg",
+    "thalach",
+    "exang",
+    "oldpeak",
+    "slope",
+    "ca",
+    "thal",
+]
 
 STROKE_FEATURES = ["Age", "Hypertension", "HeartDisease", "AvgGlucoseLevel", "BMI"]
 
@@ -125,6 +149,15 @@ def _extract_ordered_features(data: dict, feature_list: list[str]) -> np.ndarray
             raise ValueError(f"Missing feature: {feature}")
         vals.append(float(data[feature]))
     return np.array(vals).reshape(1, -1)
+
+
+def _extract_ordered_frame(data: dict, feature_list: list[str]) -> pd.DataFrame:
+    row: dict[str, float] = {}
+    for feature in feature_list:
+        if feature not in data:
+            raise ValueError(f"Missing feature: {feature}")
+        row[feature] = float(data[feature])
+    return pd.DataFrame([row], columns=feature_list)
 
 
 # === Melanoma (EfficientNetB0) ===
@@ -354,17 +387,16 @@ def predict_heart():
             return jsonify({"error": "Invalid JSON in request body"}), 400
         _log_point("HEART after JSON parse")
 
-        X = _extract_ordered_features(data, HEART_FEATURES)
-        # Apply scaler only when it matches heart feature count.
-        scaler_features = getattr(scaler, "n_features_in_", None) if scaler is not None else None
-        if scaler is not None and (scaler_features is None or int(scaler_features) == X.shape[1]):
-            X = scaler.transform(X)
+        X = _extract_ordered_frame(data, HEART_FEATURES)
         _log_point("HEART after preprocessing")
 
         _log_point("HEART before predict")
         t_pred0 = time.perf_counter()
         try:
-            y = heart_model.predict(X, verbose=0)
+            if hasattr(heart_model, "predict_proba"):
+                y = heart_model.predict_proba(X)
+            else:
+                y = heart_model.predict(X)
         except Exception as e:
             logger.exception("HEART predict failed: %s", e)
             _log_point("HEART predict exception")
@@ -373,7 +405,13 @@ def predict_heart():
         _log_point("HEART after predict")
         _log_point(f"HEART after predict | predict_ms={(t_pred1 - t_pred0) * 1000:.0f}")
 
-        prob = _to_prob(y)
+        y_arr = np.asarray(y)
+        if y_arr.ndim == 2 and y_arr.shape[1] >= 2:
+            classes = list(getattr(heart_model, "classes_", []))
+            pos_idx = classes.index(1) if 1 in classes else 1
+            prob = float(y_arr[0, pos_idx])
+        else:
+            prob = _to_prob(y_arr)
         label = "Positive" if prob >= 0.5 else "Negative"
         total_ms = (time.perf_counter() - t0) * 1000.0
         _log_point(f"HEART done | total_ms={total_ms:.0f}")

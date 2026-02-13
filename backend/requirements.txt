@@ -4,7 +4,8 @@ tensorflow
 numpy
 pillow
 joblib
-scikit-learn
+scikit-learn==1.6.1
+pandas==2.2.3
 gunicorn
 h5py
 psutil==5.9.8
