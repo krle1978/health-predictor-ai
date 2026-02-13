@@ -10,6 +10,9 @@ import threading
 import time
 from typing import Any
 
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+
 import h5py
 import joblib
 import numpy as np
@@ -28,6 +31,28 @@ CORS(app)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("hpai")
 
+try:
+    tf.config.threading.set_intra_op_parallelism_threads(1)
+    tf.config.threading.set_inter_op_parallelism_threads(1)
+except Exception as e:
+    logger.warning("Failed to set TensorFlow threading limits: %s", e)
+
+
+def _mem_mb() -> float:
+    if psutil is None:
+        return -1.0
+    p = psutil.Process(os.getpid())
+    return p.memory_info().rss / (1024 * 1024)
+
+
+def _log_point(label: str) -> None:
+    m = _mem_mb()
+    if m < 0:
+        logger.info("%s", label)
+    else:
+        logger.info("%s | rss=%.1fMB", label, m)
+
+
 # === Paths ===
 MODELS_DIR = os.path.join(os.path.dirname(__file__), "models")
 
@@ -38,6 +63,20 @@ heart_model_path = os.path.join(MODELS_DIR, "model_heart_8f.keras")
 try:
     heart_model = tf.keras.models.load_model(heart_model_path, compile=False)
     heart_load_error = None
+    try:
+        dummy_features = 13
+        input_shape = getattr(heart_model, "input_shape", None)
+        if isinstance(input_shape, list) and input_shape:
+            input_shape = input_shape[0]
+        if isinstance(input_shape, tuple) and input_shape and input_shape[-1]:
+            dummy_features = int(input_shape[-1])
+
+        dummy = np.zeros((1, dummy_features), dtype=np.float32)
+        _log_point("HEART warmup before")
+        heart_model.predict(dummy, verbose=0)
+        _log_point("HEART warmup after")
+    except Exception as e:
+        logger.exception("HEART warmup failed: %s", e)
 except Exception as e:  # pragma: no cover
     heart_model = None
     heart_load_error = str(e)
@@ -75,21 +114,6 @@ STROKE_FEATURES = ["Age", "Hypertension", "HeartDisease", "AvgGlucoseLevel", "BM
 
 
 # === Helpers ===
-def _mem_mb() -> float:
-    if psutil is None:
-        return -1.0
-    p = psutil.Process(os.getpid())
-    return p.memory_info().rss / (1024 * 1024)
-
-
-def _log_point(label: str) -> None:
-    m = _mem_mb()
-    if m < 0:
-        logger.info("%s", label)
-    else:
-        logger.info("%s | rss=%.1fMB", label, m)
-
-
 def _to_prob(y: Any) -> float:
     return float(np.ravel(y)[0])
 
@@ -337,9 +361,16 @@ def predict_heart():
             X = scaler.transform(X)
         _log_point("HEART after preprocessing")
 
+        _log_point("HEART before predict")
         t_pred0 = time.perf_counter()
-        y = heart_model.predict(X, verbose=0)
+        try:
+            y = heart_model.predict(X, verbose=0)
+        except Exception as e:
+            logger.exception("HEART predict failed: %s", e)
+            _log_point("HEART predict exception")
+            raise
         t_pred1 = time.perf_counter()
+        _log_point("HEART after predict")
         _log_point(f"HEART after predict | predict_ms={(t_pred1 - t_pred0) * 1000:.0f}")
 
         prob = _to_prob(y)
