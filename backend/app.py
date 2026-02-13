@@ -4,22 +4,29 @@
 # =========================================
 
 import io
+import logging
 import os
 import threading
 import time
-from datetime import datetime, timezone
 from typing import Any
 
 import h5py
 import joblib
 import numpy as np
 import tensorflow as tf
-from flask import Flask, jsonify, request
+from flask import Flask, g, jsonify, request
 from flask_cors import CORS
 from tensorflow.keras.preprocessing import image as keras_image
 
+try:
+    import psutil
+except Exception:
+    psutil = None
+
 app = Flask(__name__)
 CORS(app)
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("hpai")
 
 # === Paths ===
 MODELS_DIR = os.path.join(os.path.dirname(__file__), "models")
@@ -68,6 +75,21 @@ STROKE_FEATURES = ["Age", "Hypertension", "HeartDisease", "AvgGlucoseLevel", "BM
 
 
 # === Helpers ===
+def _mem_mb() -> float:
+    if psutil is None:
+        return -1.0
+    p = psutil.Process(os.getpid())
+    return p.memory_info().rss / (1024 * 1024)
+
+
+def _log_point(label: str) -> None:
+    m = _mem_mb()
+    if m < 0:
+        logger.info("%s", label)
+    else:
+        logger.info("%s | rss=%.1fMB", label, m)
+
+
 def _to_prob(y: Any) -> float:
     return float(np.ravel(y)[0])
 
@@ -279,42 +301,55 @@ def health():
     ), 200
 
 
+@app.before_request
+def _before_request():
+    g._t0 = time.perf_counter()
+    _log_point(f"REQ START {request.method} {request.path}")
+
+
+@app.after_request
+def _after_request(response):
+    dt = (time.perf_counter() - getattr(g, "_t0", time.perf_counter())) * 1000.0
+    _log_point(f"REQ END   {request.method} {request.path} | {response.status_code} | {dt:.0f}ms")
+    return response
+
+
 # === PREDICT HEART ===
 @app.route("/predict/heart", methods=["POST"])
 def predict_heart():
-    started_at = datetime.now(timezone.utc).isoformat()
-    start_perf = time.perf_counter()
-    content_type = request.headers.get("Content-Type", "")
-    data_preview = request.get_json(silent=True)
-    payload_keys = sorted(data_preview.keys()) if isinstance(data_preview, dict) else []
-    app.logger.info(
-        "START heart ts=%s content_type=%s payload_keys=%s",
-        started_at,
-        content_type,
-        payload_keys,
-    )
-
+    _log_point("HEART predict entered")
+    t0 = time.perf_counter()
     try:
         if heart_model is None:
+            _log_point("HEART model unavailable")
             return jsonify({"error": f"Heart model failed to load: {heart_load_error}"}), 503
 
-        data = request.get_json(force=True)
+        data = request.get_json(silent=True)
+        if not data:
+            _log_point("HEART invalid JSON body")
+            return jsonify({"error": "Invalid JSON in request body"}), 400
+        _log_point("HEART after JSON parse")
+
         X = _extract_ordered_features(data, HEART_FEATURES)
         # Apply scaler only when it matches heart feature count.
         scaler_features = getattr(scaler, "n_features_in_", None) if scaler is not None else None
         if scaler is not None and (scaler_features is None or int(scaler_features) == X.shape[1]):
             X = scaler.transform(X)
+        _log_point("HEART after preprocessing")
 
-        prob = _to_prob(heart_model.predict(X, verbose=0))
+        t_pred0 = time.perf_counter()
+        y = heart_model.predict(X, verbose=0)
+        t_pred1 = time.perf_counter()
+        _log_point(f"HEART after predict | predict_ms={(t_pred1 - t_pred0) * 1000:.0f}")
+
+        prob = _to_prob(y)
         label = "Positive" if prob >= 0.5 else "Negative"
+        total_ms = (time.perf_counter() - t0) * 1000.0
+        _log_point(f"HEART done | total_ms={total_ms:.0f}")
         return jsonify({"prediction": label, "confidence": round(prob, 3)})
     except Exception as e:
-        app.logger.exception("ERROR heart ts=%s", datetime.now(timezone.utc).isoformat())
+        logger.exception("HEART exception")
         return jsonify({"error": "Internal server error", "details": str(e)}), 500
-    finally:
-        ended_at = datetime.now(timezone.utc).isoformat()
-        duration_ms = round((time.perf_counter() - start_perf) * 1000, 2)
-        app.logger.info("END heart ts=%s duration_ms=%s", ended_at, duration_ms)
 
 
 # === PREDICT DIABETES ===

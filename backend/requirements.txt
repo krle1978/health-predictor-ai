@@ -7,3 +7,4 @@ joblib
 scikit-learn
 gunicorn
 h5py
+psutil==5.9.8
