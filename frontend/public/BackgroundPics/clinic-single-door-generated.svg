@@ -1,0 +1,27 @@
+<svg width="860" height="1000" viewBox="0 0 860 1000" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="doorWood" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#a17a4b"/>
+      <stop offset="50%" stop-color="#7f5a31"/>
+      <stop offset="100%" stop-color="#654526"/>
+    </linearGradient>
+    <linearGradient id="frameGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#dbc7a1"/>
+      <stop offset="100%" stop-color="#b8915b"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="860" height="1000" fill="#eef2f6"/>
+  <rect x="56" y="28" width="748" height="944" rx="34" fill="url(#frameGrad)"/>
+  <rect x="96" y="72" width="668" height="856" rx="22" fill="url(#doorWood)"/>
+
+  <rect x="145" y="126" width="570" height="340" rx="18" fill="#b08a58" opacity="0.72"/>
+  <rect x="145" y="534" width="570" height="340" rx="18" fill="#b08a58" opacity="0.72"/>
+  <rect x="401" y="126" width="58" height="748" fill="#c9a169" opacity="0.35"/>
+
+  <rect x="112" y="72" width="636" height="24" rx="10" fill="#6d4a2a" opacity="0.5"/>
+  <rect x="112" y="905" width="636" height="24" rx="10" fill="#4d341d" opacity="0.5"/>
+
+  <circle cx="682" cy="500" r="16" fill="#e9d8bc"/>
+  <rect x="671" y="485" width="22" height="30" rx="10" fill="#cfb086"/>
+</svg>
